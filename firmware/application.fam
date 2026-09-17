@@ -1,0 +1,15 @@
+# For details & more options, see documentation/AppManifests.md in firmware repo
+
+App(
+    appid="flipperphunk",  # Must be unique
+    name="FlipperPhunk RS232 MitM",  # Displayed in menus
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="flipperphunk_app",
+    stack_size=2 * 1024,
+    fap_category="GPIO",
+    fap_version="0.1",
+    fap_icon="flipperphunk.png",  # 10x10 1-bit PNG
+    fap_description="Inline RS232 relay/sniffer/injector for authorized serial MitM testing",
+    fap_author="Daniel <dan@thetechbenders.com>",
+    fap_icon_assets="images",  # Image assets to compile for this application
+)
