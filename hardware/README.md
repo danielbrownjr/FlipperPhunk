@@ -6,12 +6,10 @@ level-shifts both data directions, and presents them to the Flipper's two native
 hardware UARTs. The Flipper app receives and retransmits the traffic; the
 carrier itself does not bridge the two data paths.
 
-This repository contains the source/history documentation. The canonical
-project state and decisions are maintained in the Mem note
-`FlipperPhunk RS-232 Bridge/Logger/MitM — Project Knowledge` (note ID
-`1dcda0c7-f7b6-5064-823c-0eb0ad5d8d2e`). Audited schematics, the netlist/BOM,
-datasheets, and mechanical references are stored in the project's
-[Google Drive artifact vault](https://drive.google.com/drive/folders/1E8RKdgJdoyQ8O9zqOjbtCs8EhBM0Z2TT).
+This repository contains the source/history documentation. See the top-level
+[`README.md`](../README.md#project-authority) for where canonical project
+state, audited schematics, and other design artifacts are actually
+maintained.
 
 ## What Rev C.1 is (and is not)
 
@@ -52,6 +50,12 @@ The J3 mapping is intentionally the opposite pin role from a DTE connector:
 for a normal DCE instrument, pin 2 is its TX output and pin 3 is its RX input.
 Verify pin numbering from the mating face and against the selected connector
 footprint before fabrication.
+
+The `Rx_HV`/`Rx_LV`/`Tx_HV`/`Tx_LV` labels above are descriptive names for A1's
+physical pins, which are silkscreened per the [A1 carrier
+geometry](#a1-carrier-geometry) below using the module's own names:
+`R1_HV`=`R1IN`, `R1_LV`=`R1OUT`, `T1_LV`=`T1IN`, `T1_HV`=`T1OUT`,
+`R2_HV`=`R2IN`, `R2_LV`=`R2OUT`, `T2_LV`=`T2IN`, `T2_HV`=`T2OUT`.
 
 ## Power, ground, and handshake nets
 
@@ -107,9 +111,14 @@ this repository.
 - Confirm the physical A1 module, socket/header stack, mounting-hole fit, and
   component-side clearance.
 - Confirm J2/J3 footprint pin numbering from the mating face.
-- Decide on RS-232-side TVS/series protection.
+- Decide on RS-232-side TVS/series protection — Rev C.1 as documented has
+  **none**. You are plugging this into unknown field equipment during
+  engagements; do not use it there until this is resolved.
 - Decide whether each DE-9 shell floats or bonds to signal/chassis ground.
 - Run schematic ERC and PCB DRC after EDA capture.
+- Before first power-up, with the RS-232 side floating and the board
+  unpowered, verify with a multimeter that no J2/J3 pin 2/3 is shorted to
+  pin 5 (GND) or to any other pin.
 - Bench-test forwarding and logging on a known-good DTE/DCE serial link before
   using the device on field equipment.
 

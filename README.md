@@ -33,13 +33,13 @@ and are not captured by the Flipper.
 
 ## Project authority
 
-- **Mem** — current project truth, revision state, and design decisions:
-  `FlipperPhunk RS-232 Bridge/Logger/MitM — Project Knowledge`, note ID
-  `1dcda0c7-f7b6-5064-823c-0eb0ad5d8d2e`.
+- **Mem** — current project truth, revision state, and design decisions live
+  in a private project-knowledge note (not linked here since this repo is
+  public; ask the project owner for access).
 - **GitHub** — source code and repository history.
 - **Google Drive** — audited schematics, netlists/BOMs, datasheets, and other
-  binary/design artifacts in the
-  [artifact vault](https://drive.google.com/drive/folders/1E8RKdgJdoyQ8O9zqOjbtCs8EhBM0Z2TT).
+  binary/design artifacts live in a private artifact vault (access-controlled
+  separately from this repo; ask the project owner for access).
 
 ## Repo layout
 
