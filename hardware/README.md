@@ -1,105 +1,117 @@
-# Hardware — Inline RS232 Level-Shifter / Relay Board
+# Hardware — Rev C.1 active dual-UART RS-232 bridge/logger
 
-This board sits **inline** in an RS232 link between two devices (A and B). It
-breaks both signal paths and hands them to the Flipper Zero as two
-independent, level-shifted, full-duplex 3.3V TTL UARTs. The Flipper app is
-what actually reconnects A and B (see `firmware/flipperphunk/`) — the board
-itself does no relaying, only voltage translation.
+Rev C.1 is a carrier for the Flipper Zero and an **Adafruit 5987 RS232 Pal**
+module. It sits inline between a normal host/PC (DTE) and an instrument (DCE),
+level-shifts both data directions, and presents them to the Flipper's two native
+hardware UARTs. The Flipper app receives and retransmits the traffic; the
+carrier itself does not bridge the two data paths.
 
-This is a schematic-level design (BOM + wiring tables), meant to be laid out
-on perfboard or a simple 2-layer PCB. No KiCad project is included yet; ask
-if you want one generated from this design.
+This repository contains the source/history documentation. The canonical
+project state and decisions are maintained in the Mem note
+`FlipperPhunk RS-232 Bridge/Logger/MitM — Project Knowledge` (note ID
+`1dcda0c7-f7b6-5064-823c-0eb0ad5d8d2e`). Audited schematics, the netlist/BOM,
+datasheets, and mechanical references are stored in the project's
+[Google Drive artifact vault](https://drive.google.com/drive/folders/1E8RKdgJdoyQ8O9zqOjbtCs8EhBM0Z2TT).
 
-## Concept
+## What Rev C.1 is (and is not)
 
-Each RS232 side needs one driver (TTL→RS232, for the Flipper's TX into that
-device's RX) and one receiver (RS232→TTL, for that device's TX into the
-Flipper's RX). Two sides = 2 drivers + 2 receivers, which is exactly one
-**MAX3232** (or MAX3232E for extra ESD margin) — it has 2 drivers/2 receivers
-and only needs 4 external 0.1µF caps for its internal charge pump, running
-off 3.3V.
+- It is an **active dual-UART inline bridge/logger**, not a passive tap.
+- If the Flipper loses power, the app crashes, or forwarding stops, TX/RX
+  communication stops. **No fail-safe bypass is implemented.**
+- The six handshake signals pass straight through and are not observed by the
+  Flipper.
+- Selectable DTE/DCE/null-modem routing and galvanic isolation are not
+  implemented.
+- HV-side TVS/series protection and DE-9 shell grounding remain open design
+  decisions. Do not infer either feature from this document.
 
-```
-                         MAX3232
-                     ┌───────────────┐
- DE-9 A pin 3 (TXD)──►R1IN     R1OUT ├──► Flipper pin 14 (USART RX)
- DE-9 A pin 2 (RXD)◄──T1OUT     T1IN │◄── Flipper pin 13 (USART TX)
- DE-9 A pin 5 (GND)──────────────GND │
-                     │               │
- DE-9 B pin 3 (TXD)──►R2IN     R2OUT ├──► Flipper pin 16 (LPUART RX)
- DE-9 B pin 2 (RXD)◄──T2OUT     T2IN │◄── Flipper pin 15 (LPUART TX)
- DE-9 B pin 5 (GND)──────────────GND │
-                     │  C1+ C1- C2+ C2-  VCC  GND
-                     └───┬───┬───┬───┬────┬────┬──┘
-                        0.1uF pairs to   3.3V  Flipper GND
-                        the 4 cap pins  (Flipper (pin 8/11/18)
-                        per datasheet    pin 9)
-```
+## Reference designators
 
-Notes:
-- DE-9 pinout above assumes each device is wired as **DTE** (the common case
-  for PCs, PLCs, most embedded gear) — TXD is pin 3, RXD is pin 2, GND is
-  pin 5 on a standard DE-9. If a device is actually DCE (e.g. a modem), its
-  TXD/RXD are swapped relative to this table — check the target device's
-  pinout before wiring, since getting it backwards just means no data flows
-  (not damage), because the MAX3232 receiver inputs tolerate the full
-  ±30V RS232 swing.
-- Add a **TVS diode array** (e.g. SM712 or similar RS232-rated array) on the
-  four RS232-side lines (both DE-9 connectors' pins 2/3) for ESD/surge
-  protection — you're plugging this into unknown field equipment during
-  engagements, so don't skip this.
-- Tie unused RS232 handshake lines (RTS/CTS/DTR/DSR/DCD) straight through
-  with a wire loopback at each DE-9 (e.g. jumper RTS→CTS, DTR→DSR+DCD) if the
-  target devices expect hardware flow control / handshake to be present, since
-  this board only relays TXD/RXD. If your target link doesn't use hardware
-  flow control (most simple point-to-point serial links don't), you can
-  leave them unconnected.
+| Ref | Part | Role |
+| --- | --- | --- |
+| A1 | Adafruit 5987 RS232 Pal | Dual-channel MAX3232E RS-232/3.3 V translator; charge-pump capacitors are already on the module |
+| J1 | Flipper Zero GPIO header | 2x8, 2.54 mm female receptacle; only pins 8, 9, 11, and 13–16 are used |
+| J2 | DE-9 female | HOST/PC side; mates with a normal DTE male port |
+| J3 | DE-9 male | INSTRUMENT side; mates with a normal DCE female port |
 
-## Bill of materials
+Do **not** add external MAX3232E charge-pump capacitors to the carrier. A1
+contains the transceiver and its support circuitry. A1 `V+` and `V-` are
+charge-pump outputs, not power inputs; leave them unconnected unless they are
+deliberately exposed as clearly labelled test points.
 
-| Ref | Part | Notes |
-|---|---|---|
-| U1 | MAX3232E (SOIC-16 or use a breakout module) | 3.3V RS232 transceiver, 2 TX/2 RX |
-| C1–C4 | 0.1µF ceramic, 16V+ | MAX3232 charge-pump caps |
-| C5 | 0.1µF ceramic | VCC decoupling, close to U1 |
-| J1, J2 | DE-9 female connector | One per RS232 side (A, B) |
-| D1–D4 | TVS diode array (e.g. SM712) or 4x individual TVS | ESD/surge protection on TXD/RXD lines, optional but recommended |
-| J3 | 2.54mm pin header, 6-pin | Connects to Flipper GPIO: 3V3, GND, pins 13/14/15/16 |
-| — | Perfboard or 2-layer PCB, wire, standoffs, enclosure | Mechanical |
+## Canonical Rev C.1 data paths
 
-A ready-made "MAX3232 RS232 to TTL" breakout module (widely available, ~$1-2,
-often sold in Arduino accessory kits) can replace U1+C1-C5+J1 if you only
-need one side — you'd need **two** such modules (one per RS232 side) wired
-into the Flipper's two UART channels, which is a faster path to a working
-prototype than building a custom board first.
+| Direction | Path |
+| --- | --- |
+| Host/PC to Flipper | J2 pin 3 (DTE TX) -> A1 `R1_HV` -> A1 `R1_LV` -> J1 pin 14 (USART RX) |
+| Flipper to host/PC | J1 pin 13 (USART TX) -> A1 `T1_LV` -> A1 `T1_HV` -> J2 pin 2 (DTE RX) |
+| Instrument to Flipper | J3 pin 2 (DCE TX) -> A1 `R2_HV` -> A1 `R2_LV` -> J1 pin 16 (LPUART RX) |
+| Flipper to instrument | J1 pin 15 (LPUART TX) -> A1 `T2_LV` -> A1 `T2_HV` -> J3 pin 3 (DCE RX) |
 
-## Wiring table: board → Flipper GPIO header
+The J3 mapping is intentionally the opposite pin role from a DTE connector:
+for a normal DCE instrument, pin 2 is its TX output and pin 3 is its RX input.
+Verify pin numbering from the mating face and against the selected connector
+footprint before fabrication.
 
-Flipper Zero's GPIO header pinout (relevant pins only):
+## Power, ground, and handshake nets
 
-| Flipper pin | Function | Connect to |
-|---|---|---|
-| 1 | +5V (must be enabled in GPIO settings) | not used |
-| 8 | GND | board GND |
-| 9 | +3.3V (max 1.2A) | board VCC |
-| 11 | GND | board GND (2nd tie point if needed) |
-| 13 | USART1 TX | MAX3232 T1IN (drives Side A's RXD) |
-| 14 | USART1 RX | MAX3232 R1OUT (receives Side A's TXD) |
-| 15 | LPUART TX | MAX3232 T2IN (drives Side B's RXD) |
-| 16 | LPUART RX | MAX3232 R2OUT (receives Side B's TXD) |
-| 18 | GND | board GND |
+| Net | Connections / implementation |
+| --- | --- |
+| `+3V3` | J1.9 -> A1.VIN |
+| `GND` | J1.8, J1.11, J2.5, J3.5, A1.GND |
+| `DCD_PASS` | J2.1 <-> J3.1 |
+| `DTR_PASS` | J2.4 <-> J3.4 |
+| `DSR_PASS` | J2.6 <-> J3.6 |
+| `RTS_PASS` | J2.7 <-> J3.7 |
+| `CTS_PASS` | J2.8 <-> J3.8 |
+| `RI_PASS` | J2.9 <-> J3.9 |
 
-The firmware (`firmware/flipperphunk/`) is written for exactly this pin
-assignment — Side A = USART (13/14), Side B = LPUART (15/16). If you rewire
-differently, update `SIDE_A_ID`/`SIDE_B_ID` in `flipperphunk_app.c` to match.
+Handshake lines may be plain copper or optional 0 ohm links/solder bridges.
+They are straight-through nets; do not loop them locally at either connector.
+This treatment is valid for the intended DTE-to-DCE installation. A DTE
+instrument requires an external null-modem adapter until selectable routing is
+implemented in a future revision.
 
-## Safety
+## A1 carrier geometry
 
-- Never connect the RS232-side (J1/J2) pins directly to the Flipper's GPIO —
-  RS232's ±12V swing will destroy the Flipper's 3.3V-tolerant I/O instantly.
-  The MAX3232 is not optional.
-- Power the board from the Flipper's 3.3V rail, not a separate supply, unless
-  you tie grounds together — floating/mismatched grounds between the board
-  and the Flipper will corrupt or destroy the logic-level signaling.
-- Verify with a multimeter (RS232 side floating, board unpowered) that DE-9
-  pin 2/3 are not shorted to pin 5 (GND) or to each other before first power-up.
+The following dimensions were verified from Adafruit's official Eagle board
+source at commit `653d1bb7c6cf2d9efe381b85ff275bf0feefdb17`:
+
+- board outline: 17.78 x 20.32 mm, 2.54 mm corner radius;
+- two 1x6 plated-through-hole rows at 2.54 mm pitch;
+- 12.70 mm row-to-row spacing;
+- header holes: 1.00 mm drill, 1.778 mm pad diameter;
+- two mounting holes: 2.50 mm drill, 3.20 mm pad diameter, 15.24 mm pitch;
+- LV row, bottom-to-top: `T1IN`, `R1OUT`, `T2IN`, `R2OUT`, `GND`, `VIN`;
+- HV row, bottom-to-top: `T1OUT`, `R1IN`, `T2OUT`, `R2IN`, `V-`, `V+`.
+
+Use the [official Adafruit RS232 Pal PCB repository](https://github.com/adafruit/Adafruit-RS232-Pal-PCB)
+as the source authority for module geometry. The Drive artifact
+`07_Reference/FlipperPhunk_Adafruit_5987_Carrier_Footprint_Reference.md`
+contains the full coordinate and keepout handoff.
+
+## Canonical artifacts
+
+- `01_Schematics/Rev_C1/FlipperPhunk_RS232_RevC1_AUDITED.svg`
+- `01_Schematics/Rev_C1/FlipperPhunk_RS232_RevC1_AUDITED.png`
+- `02_Netlists_BOM/FlipperPhunk_RevC1_Netlist_BOM_AUDITED.xlsx`
+- `07_Reference/FlipperPhunk_Adafruit_5987_Carrier_Footprint_Reference.md`
+- `03_Datasheets/MAX3232E/max3232e.pdf`
+
+Use the audited workbook when transcribing the design into KiCad or another
+EDA package. No PCB layout or fabrication package is currently committed to
+this repository.
+
+## Pre-fabrication checks
+
+- Confirm the physical A1 module, socket/header stack, mounting-hole fit, and
+  component-side clearance.
+- Confirm J2/J3 footprint pin numbering from the mating face.
+- Decide on RS-232-side TVS/series protection.
+- Decide whether each DE-9 shell floats or bonds to signal/chassis ground.
+- Run schematic ERC and PCB DRC after EDA capture.
+- Bench-test forwarding and logging on a known-good DTE/DCE serial link before
+  using the device on field equipment.
+
+Never connect RS-232 voltage levels directly to Flipper GPIO. A1 is the
+required voltage-domain boundary.
