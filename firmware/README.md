@@ -7,7 +7,8 @@ Inline RS232 relay/sniffer/injector. Pairs with the level-shifter board in
 ## What it does
 
 - Acquires the Flipper's two hardware serial peripherals: **USART**
-  (GPIO 13/14 — "Side A") and **LPUART** (GPIO 15/16 — "Side B").
+  (GPIO 13/14 — J2 HOST/PC side) and **LPUART** (GPIO 15/16 — J3
+  INSTRUMENT/DCE side).
 - Relays every byte received on one side out the other, in real time, so the
   two RS232 devices keep talking normally while the Flipper is inline.
 - Logs every byte, timestamped and tagged by direction, to
@@ -26,6 +27,11 @@ Inline RS232 relay/sniffer/injector. Pairs with the level-shifter board in
   whatever you need for a given engagement and rebuild. A proper on-device
   text-entry UI for arbitrary injection payloads is the natural next step;
   this is deliberately a minimal hook rather than that.
+
+In the current UI/source naming, Side A means J2 HOST/PC and Side B means J3
+INSTRUMENT/DCE. Rev C.1 is an active bridge: stopping this app, losing power,
+or crashing interrupts both TX/RX data paths because no hardware bypass is
+implemented.
 
 Both sides run the same baud rate (selectable at the setup screen:
 1200–115200) and framing (fixed at 8N1 — edit
