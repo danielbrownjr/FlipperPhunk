@@ -38,6 +38,32 @@ NETS = {
 }
 
 
+# Canonical schematic-symbol pin offsets in legacy KiCad mils. Both the
+# generated legacy library/schematic and the modern schematic path derive their
+# pin positions from this table so their geometry cannot drift independently.
+SCHEMATIC_PIN_OFFSETS = {
+    "FLIPPER_HEADER": {
+        **{str(i): (-500, 700 - (i - 1) * 200) for i in range(1, 9)},
+        **{str(i): (500, 700 - (i - 9) * 200) for i in range(9, 17)},
+    },
+    "ADAFRUIT_5987": {
+        **{str(i): (-600, 500 - (i - 1) * 200) for i in range(1, 7)},
+        **{str(i): (600, 500 - (i - 7) * 200) for i in range(7, 13)},
+    },
+    "DSUB9_SHELL": {
+        **{str(i): (-500, 800 - (i - 1) * 200) for i in range(1, 10)},
+        "S1": (500, 200),
+        "S2": (500, -200),
+    },
+}
+
+
+PIN_NETS = {
+    ref: {pin: net for net, endpoints in NETS.items() for endpoint_ref, pin in endpoints if endpoint_ref == ref}
+    for ref in ("J1", "A1", "J2", "J3")
+}
+
+
 def v(x, y):
     return pcbnew.VECTOR2I(MM(x), MM(y))
 
@@ -614,26 +640,23 @@ def legacy_lib_text():
 
     out = ["EESchema-LIBRARY Version 2.4", "#encoding utf-8"]
     out += ["#", "# FLIPPER_HEADER", "#", "DEF FLIPPER_HEADER J 0 40 Y Y 1 F N", "F0 \"J\" 0 950 50 H V C CNN", "F1 \"FLIPPER_HEADER\" 0 -950 50 H V C CNN", "DRAW", "S -300 800 300 -800 0 1 10 f"]
-    for i in range(1, 9):
-        out.append(pin(str(i), str(i), -500, 700 - (i - 1) * 200, "R"))
-    for i in range(9, 17):
-        out.append(pin(str(i), str(i), 500, 700 - (i - 9) * 200, "L"))
+    for number, (x, y) in SCHEMATIC_PIN_OFFSETS["FLIPPER_HEADER"].items():
+        out.append(pin(number, number, x, y, "R" if x < 0 else "L"))
     out += ["ENDDRAW", "ENDDEF"]
 
     out += ["#", "# ADAFRUIT_5987", "#", "DEF ADAFRUIT_5987 A 0 40 Y Y 1 F N", "F0 \"A\" 0 850 50 H V C CNN", "F1 \"ADAFRUIT_5987\" 0 -850 50 H V C CNN", "DRAW", "S -400 650 400 -650 0 1 10 f"]
     left = ["T1IN", "R1OUT", "T2IN", "R2OUT", "GND", "VIN"]
     right = ["T1OUT", "R1IN", "T2OUT", "R2IN", "V-", "V+"]
-    for i, name in enumerate(left, 1):
-        out.append(pin(name, str(i), -600, 500 - (i - 1) * 200, "R"))
-    for i, name in enumerate(right, 7):
-        out.append(pin(name, str(i), 600, 500 - (i - 7) * 200, "L"))
+    a1_names = {str(i): name for i, name in enumerate(left, 1)}
+    a1_names.update({str(i): name for i, name in enumerate(right, 7)})
+    for number, (x, y) in SCHEMATIC_PIN_OFFSETS["ADAFRUIT_5987"].items():
+        out.append(pin(a1_names[number], number, x, y, "R" if x < 0 else "L"))
     out += ["ENDDRAW", "ENDDEF"]
 
     out += ["#", "# DSUB9_SHELL", "#", "DEF DSUB9_SHELL J 0 40 Y Y 1 F N", "F0 \"J\" 0 1100 50 H V C CNN", "F1 \"DSUB9_SHELL\" 0 -1200 50 H V C CNN", "DRAW", "S -300 950 300 -1050 0 1 10 f"]
-    for i in range(1, 10):
-        out.append(pin(str(i), str(i), -500, 800 - (i - 1) * 200, "R"))
-    out.append(pin("SHELL_A", "S1", 500, 200, "L"))
-    out.append(pin("SHELL_B", "S2", 500, -200, "L"))
+    dsub_names = {**{str(i): str(i) for i in range(1, 10)}, "S1": "SHELL_A", "S2": "SHELL_B"}
+    for number, (x, y) in SCHEMATIC_PIN_OFFSETS["DSUB9_SHELL"].items():
+        out.append(pin(dsub_names[number], number, x, y, "R" if x < 0 else "L"))
     out += ["ENDDRAW", "ENDDEF", "#", "#End Library", ""]
     return "\n".join(out)
 
@@ -678,41 +701,29 @@ def build_legacy_schematic():
         *comps,
     ]
 
-    # Symbol pin coordinates and local net labels.
+    # Symbol pin coordinates and local net labels. Pin endpoints and label
+    # direction come from the same geometry used to emit the symbol library.
     connections = []
     no_connects = []
+    legacy_parts = {
+        "J1": ("FLIPPER_HEADER", (2100, 3900)),
+        "A1": ("ADAFRUIT_5987", (5200, 3900)),
+        "J2": ("DSUB9_SHELL", (8300, 2700)),
+        "J3": ("DSUB9_SHELL", (8300, 5600)),
+    }
+    for ref, (symbol_name, (cx, cy)) in legacy_parts.items():
+        for pin_number, (dx, dy) in SCHEMATIC_PIN_OFFSETS[symbol_name].items():
+            point = (cx + dx, cy + dy)
+            net_name = PIN_NETS[ref].get(pin_number)
+            if net_name is None:
+                no_connects.append((point, None))
+            else:
+                connections.append((point, net_name, dx))
 
-    def left_pin(cx, cy, index, count_y0):
-        return (cx - 500, cy + count_y0 - (index - 1) * 200)
-
-    def right_pin(cx, cy, index, start, count_y0):
-        return (cx + 500, cy + count_y0 - (index - start) * 200)
-
-    j1_map = {8: "GND", 9: "+3V3", 11: "GND", 13: "USART_TX", 14: "USART_RX", 15: "LPUART_TX", 16: "LPUART_RX"}
-    for i in range(1, 17):
-        p = left_pin(2100, 3900, i, 700) if i <= 8 else right_pin(2100, 3900, i, 9, 700)
-        (connections if i in j1_map else no_connects).append((p, j1_map.get(i)))
-
-    a1_names = {1: "USART_TX", 2: "USART_RX", 3: "LPUART_TX", 4: "LPUART_RX", 5: "GND", 6: "+3V3", 7: "HOST_RXD", 8: "HOST_TXD", 9: "INST_TXD_TO_DCE", 10: "INST_RXD_FROM_DCE"}
-    for i in range(1, 13):
-        p = left_pin(5200, 3900, i, 500) if i <= 6 else right_pin(5200, 3900, i, 7, 500)
-        (connections if i in a1_names else no_connects).append((p, a1_names.get(i)))
-
-    j2_names = {1: "DCD_PASS", 2: "HOST_RXD", 3: "HOST_TXD", 4: "DTR_PASS", 5: "GND", 6: "DSR_PASS", 7: "RTS_PASS", 8: "CTS_PASS", 9: "RI_PASS"}
-    j3_names = {1: "DCD_PASS", 2: "INST_RXD_FROM_DCE", 3: "INST_TXD_TO_DCE", 4: "DTR_PASS", 5: "GND", 6: "DSR_PASS", 7: "RTS_PASS", 8: "CTS_PASS", 9: "RI_PASS"}
-    for cx, cy, names in ((8300, 2700, j2_names), (8300, 5600, j3_names)):
-        for i in range(1, 10):
-            connections.append((left_pin(cx, cy, i, 800), names[i]))
-        no_connects += [((cx + 500, cy + 200), None), ((cx + 500, cy - 200), None)]
-
-    for (x, y), name in connections:
-        if x < 2100 or x < 5200 or x < 8300:
-            x2 = x - 250
-        else:
-            x2 = x + 250
-        # Direction follows which side of the component the pin occupies.
-        center = 2100 if x in (1600, 2600) else 5200 if x in (4600, 5800) else 8300
-        x2 = x - 250 if x < center else x + 250
+    for (x, y), name, pin_dx in connections:
+        x2 = x - 250 if pin_dx < 0 else x + 250
+        # Regression guard: every wire/label must extend away from its symbol.
+        assert (x2 - x) * pin_dx > 0, f"Label for {name} points into its symbol"
         lines += [f"Wire Wire Line", f"\t{x} {y} {x2} {y}", f"Text Label {x2} {y} 0    45   ~ 0", name]
     for (x, y), _ in no_connects:
         lines.append(f"NoConn ~ {x} {y}")
@@ -789,27 +800,13 @@ def build_modern_schematic():
         "J3": ("DSUB9_SHELL", "INSTRUMENT MALE 618009231221", "FlipperPhunk:Wurth_618009231221", (220.98, 144.78)),
     }
 
-    # Relative pin coordinates from the custom symbol library, in millimetres.
+    # Derive modern millimetre offsets from the canonical legacy geometry.
     pin_offsets = {
-        "FLIPPER_HEADER": {
-            **{str(i): (-12.7, 17.78 - (i - 1) * 5.08) for i in range(1, 9)},
-            **{str(i): (12.7, 17.78 - (i - 9) * 5.08) for i in range(9, 17)},
-        },
-        "ADAFRUIT_5987": {
-            **{str(i): (-15.24, 12.7 - (i - 1) * 5.08) for i in range(1, 7)},
-            **{str(i): (15.24, 12.7 - (i - 7) * 5.08) for i in range(7, 13)},
-        },
-        "DSUB9_SHELL": {
-            **{str(i): (-12.7, 20.32 - (i - 1) * 5.08) for i in range(1, 10)},
-            "S1": (12.7, 5.08),
-            "S2": (12.7, -5.08),
-        },
-    }
-    net_maps = {
-        "J1": {"8": "GND", "9": "+3V3", "11": "GND", "13": "USART_TX", "14": "USART_RX", "15": "LPUART_TX", "16": "LPUART_RX"},
-        "A1": {"1": "USART_TX", "2": "USART_RX", "3": "LPUART_TX", "4": "LPUART_RX", "5": "GND", "6": "+3V3", "7": "HOST_RXD", "8": "HOST_TXD", "9": "INST_TXD_TO_DCE", "10": "INST_RXD_FROM_DCE"},
-        "J2": {"1": "DCD_PASS", "2": "HOST_RXD", "3": "HOST_TXD", "4": "DTR_PASS", "5": "GND", "6": "DSR_PASS", "7": "RTS_PASS", "8": "CTS_PASS", "9": "RI_PASS"},
-        "J3": {"1": "DCD_PASS", "2": "INST_RXD_FROM_DCE", "3": "INST_TXD_TO_DCE", "4": "DTR_PASS", "5": "GND", "6": "DSR_PASS", "7": "RTS_PASS", "8": "CTS_PASS", "9": "RI_PASS"},
+        symbol_name: {
+            number: (round(x * 0.0254, 3), round(y * 0.0254, 3))
+            for number, (x, y) in offsets.items()
+        }
+        for symbol_name, offsets in SCHEMATIC_PIN_OFFSETS.items()
     }
 
     for ref, (lib_name, value, footprint, (x, y)) in parts.items():
@@ -842,7 +839,7 @@ def build_modern_schematic():
         sch.schematicSymbols.append(symbol)
         for number, (dx, dy) in pin_offsets[lib_name].items():
             pos = Position(round(x + dx, 3), round(y - dy, 3), 0)
-            net_name = net_maps[ref].get(number)
+            net_name = PIN_NETS[ref].get(number)
             if net_name is None:
                 sch.noConnects.append(NoConnect(position=pos, uuid=uid()))
             else:
