@@ -70,8 +70,9 @@ geometry](#a1-carrier-geometry) below using the module's own names:
 | `CTS_PASS` | J2.8 <-> J3.8 |
 | `RI_PASS` | J2.9 <-> J3.9 |
 
-Handshake lines may be plain copper or optional 0 ohm links/solder bridges.
-They are straight-through nets; do not loop them locally at either connector.
+Rev C.1 implements the handshake lines as plain copper with no 0 ohm links or
+solder bridges. They are straight-through nets; do not loop them locally at
+either connector.
 This treatment is valid for the intended DTE-to-DCE installation. A DTE
 instrument requires an external null-modem adapter until selectable routing is
 implemented in a future revision.
@@ -103,8 +104,14 @@ contains the full coordinate and keepout handoff.
 - `03_Datasheets/MAX3232E/max3232e.pdf`
 
 Use the audited workbook when transcribing the design into KiCad or another
-EDA package. No PCB layout or fabrication package is currently committed to
-this repository.
+EDA package. The initial KiCad 10 Rev C.1 project is now committed under
+[`hardware/kicad`](kicad/README.md). It includes the schematic, routed board,
+project-local symbols/footprints, and generation notes. The supplied mascot
+concept is preserved under [`hardware/artwork`](artwork/README.md) and appears
+as simplified approximately 24.26 x 22.03 mm decorative `B.SilkS` geometry; it
+has no electrical or mechanical function. This is an engineering capture, not an
+authorization to order or fabricate boards; the physical checks in the KiCad
+README remain mandatory.
 
 ## Pre-fabrication checks
 
