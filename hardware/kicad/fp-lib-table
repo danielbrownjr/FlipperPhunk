@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "FlipperPhunk")(type "KiCad")(uri "${KIPRJMOD}/FlipperPhunk.pretty")(options "")(descr "FlipperPhunk Rev C.1 footprints"))
+)

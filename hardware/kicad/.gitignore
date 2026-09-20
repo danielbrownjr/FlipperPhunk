@@ -1,0 +1,11 @@
+# Generated QA/export files and local editor state.
+FlipperPhunk_RevC1.sch
+FlipperPhunk_RevC1.kicad_prl
+FlipperPhunk_RevC1_schematic.pdf
+FlipperPhunk_RevC1_board.svg
+erc.rpt
+drc.rpt
+FlipperPhunk_RevC1-cache.lib
+__pycache__/
+.history/
+~*.lck
