@@ -96,6 +96,11 @@ mascot footprint. Rebuilding the mascot derivatives themselves additionally
 requires Pillow, NumPy, and `opencv-python-headless`; run
 `../artwork/vectorize_mascot.py` first if the source art changes.
 
+The `erc.rpt` and `drc.rpt` files are reproducible local outputs and are
+intentionally ignored rather than committed as canonical review evidence. Run
+the commands above against the committed design, and record the tool version
+and result in the relevant pull request or release notes.
+
 ## Mechanical assumptions to resolve before fabrication
 
 No fabrication files are supplied or authorized by this revision. Before any

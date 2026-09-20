@@ -1,11 +1,18 @@
-# Generated QA/export files and local editor state.
+# Generated legacy/intermediate files (the committed .kicad_* files are source).
 FlipperPhunk_RevC1.sch
-FlipperPhunk_RevC1.kicad_prl
 FlipperPhunk_RevC1_schematic.pdf
 FlipperPhunk_RevC1_board.svg
-erc.rpt
-drc.rpt
 FlipperPhunk_RevC1-cache.lib
+
+# Reproducible local validation reports; record results in the PR/README.
+*.rpt
+
+# KiCad/Python local editor and cache state.
+*.kicad_prl
+*.kicad_sch-bak
+*.kicad_pcb-bak
+*.kicad_pro-bak
+_autosave-*
 __pycache__/
 .history/
 ~*.lck
