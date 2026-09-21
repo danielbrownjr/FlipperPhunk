@@ -1,6 +1,7 @@
 # ufbt build output / local SDK cache, if generated inside the project
 firmware/dist/
 firmware/.ufbt/
+firmware/.vscode/
 *.fap
 
 # OS cruft

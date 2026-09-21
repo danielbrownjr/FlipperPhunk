@@ -14,6 +14,7 @@
 #include <furi_hal_resources.h>
 
 #include <gui/gui.h>
+#include <gui/icon_animation.h>
 #include <input/input.h>
 #include <storage/storage.h>
 #include <expansion/expansion.h>
@@ -49,9 +50,16 @@ typedef enum {
 #define WORKER_ALL_EVENTS (WorkerEvtStop | WorkerEvtRxA | WorkerEvtRxB)
 
 typedef enum {
+    AppStateSplash,
     AppStateSetup,
     AppStateRunning,
 } AppState;
+
+/* Startup mascot animation: shown alone (no operational data on screen
+ * yet, since the relay hasn't started) for a short beat or until any key
+ * is pressed, then dismissed for good. Never shown again during Setup or
+ * Running so it can't compete with RELAYING/PAUSED/baud/counters/preview. */
+#define SPLASH_DURATION_MS 1500
 
 static const uint32_t kBaudRates[] = {
     1200,
@@ -77,6 +85,9 @@ typedef struct {
     size_t baud_index;
     bool relay_paused;
     uint8_t inject_focus; /* 0 = side A, 1 = side B */
+
+    IconAnimation* mascot;
+    uint32_t splash_start_tick;
 
     FuriHalSerialHandle* handle_a;
     FuriHalSerialHandle* handle_b;
@@ -294,7 +305,15 @@ static void draw_callback(Canvas* canvas, void* context) {
     canvas_clear(canvas);
     canvas_set_font(canvas, FontPrimary);
 
-    if(app->state == AppStateSetup) {
+    if(app->state == AppStateSplash) {
+        /* Mascot is 40x40; center it horizontally, top-aligned, with the
+         * title/hint text below. This screen shows nothing else, so the
+         * animation can never obscure relay/traffic status. */
+        canvas_draw_icon_animation(canvas, 44, 0, app->mascot);
+        canvas_set_font(canvas, FontSecondary);
+        canvas_draw_str_aligned(canvas, 64, 44, AlignCenter, AlignTop, "FlipperPhunk");
+        canvas_draw_str_aligned(canvas, 64, 54, AlignCenter, AlignTop, "RS232 MitM");
+    } else if(app->state == AppStateSetup) {
         canvas_draw_str(canvas, 2, 12, "FlipperPhunk RS232 MitM");
         canvas_set_font(canvas, FontSecondary);
         char buf[48];
@@ -333,13 +352,27 @@ static void input_callback(InputEvent* event, void* context) {
     furi_message_queue_put(app->input_queue, event, 0);
 }
 
+/* IconAnimation advances its own frames off an internal timer; this just
+ * asks the GUI to redraw when a new frame is ready. Runs on the GUI/timer
+ * service, never on the relay worker or serial callbacks. */
+static void mascot_update_callback(IconAnimation* instance, void* context) {
+    UNUSED(instance);
+    FlipperPhunkApp* app = context;
+    view_port_update(app->view_port);
+}
+
+static void splash_dismiss(FlipperPhunkApp* app) {
+    icon_animation_stop(app->mascot);
+    app->state = AppStateSetup;
+}
+
 /* ---- app lifecycle ---- */
 
 static FlipperPhunkApp* app_alloc(void) {
     FlipperPhunkApp* app = malloc(sizeof(FlipperPhunkApp));
     memset(app, 0, sizeof(FlipperPhunkApp));
 
-    app->state = AppStateSetup;
+    app->state = AppStateSplash;
     app->baud_index = 3; /* 9600 */
     app->inject_focus = 0;
 
@@ -348,12 +381,18 @@ static FlipperPhunkApp* app_alloc(void) {
     app->storage = furi_record_open(RECORD_STORAGE);
     app->expansion = furi_record_open(RECORD_EXPANSION);
 
+    app->mascot = icon_animation_alloc(&A_Mascot_bop_40x40);
+    icon_animation_set_update_callback(app->mascot, mascot_update_callback, app);
+
     app->view_port = view_port_alloc();
     view_port_draw_callback_set(app->view_port, draw_callback, app);
     view_port_input_callback_set(app->view_port, input_callback, app);
 
     app->gui = furi_record_open(RECORD_GUI);
     gui_add_view_port(app->gui, app->view_port, GuiLayerFullscreen);
+
+    app->splash_start_tick = furi_get_tick();
+    icon_animation_start(app->mascot);
 
     return app;
 }
@@ -362,6 +401,8 @@ static void app_free(FlipperPhunkApp* app) {
     gui_remove_view_port(app->gui, app->view_port);
     furi_record_close(RECORD_GUI);
     view_port_free(app->view_port);
+
+    icon_animation_free(app->mascot);
 
     furi_record_close(RECORD_EXPANSION);
     furi_record_close(RECORD_STORAGE);
@@ -378,6 +419,22 @@ int32_t flipperphunk_app(void* p) {
     InputEvent event;
     while(running) {
         FuriStatus status = furi_message_queue_get(app->input_queue, &event, 100);
+
+        if(app->state == AppStateSplash) {
+            /* Dismiss on any keypress, or automatically after the splash
+             * duration elapses even with no input -- checked every poll
+             * so it doesn't require a key event to fire. */
+            bool key_pressed = status == FuriStatusOk &&
+                                (event.type == InputTypeShort || event.type == InputTypeLong);
+            bool timed_out =
+                (furi_get_tick() - app->splash_start_tick) >= SPLASH_DURATION_MS;
+            if(key_pressed || timed_out) {
+                splash_dismiss(app);
+                view_port_update(app->view_port);
+            }
+            continue;
+        }
+
         if(status != FuriStatusOk) continue;
         if(event.type != InputTypeShort && event.type != InputTypeLong) continue;
 
