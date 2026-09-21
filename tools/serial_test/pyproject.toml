@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flipperphunk-serial-test"
+version = "0.1.0"
+description = "Host-side serial stress-test harness for the FlipperPhunk RS-232 bridge/logger firmware"
+requires-python = ">=3.9"
+dependencies = ["pyserial>=3.5"]
+
+[project.scripts]
+serial-test = "serial_test.cli:main"
+
+[tool.setuptools]
+packages = ["serial_test"]
