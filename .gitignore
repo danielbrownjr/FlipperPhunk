@@ -6,3 +6,9 @@ firmware/.ufbt/
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# tools/serial_test: Python cruft and local test-run output
+tools/serial_test/**/__pycache__/
+tools/serial_test/.pytest_cache/
+tools/serial_test/results/
+tools/serial_test/*.egg-info/

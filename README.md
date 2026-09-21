@@ -46,6 +46,9 @@ and are not captured by the Flipper.
 - `hardware/` — level-shifter board design: schematic description, BOM,
   wiring table from RS232 through to the Flipper GPIO header.
 - `firmware/` — the Flipper Zero application (FAP) source.
+- `tools/serial_test/` — host-side Python harness for stress-testing the
+  firmware's two UART paths at 3.3V TTL level, independent of the RS-232
+  level shifter/PCB. See `tools/serial_test/README.md`.
 
 ## Quick start
 
