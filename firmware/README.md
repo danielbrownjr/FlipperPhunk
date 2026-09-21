@@ -33,6 +33,16 @@ INSTRUMENT/DCE. Rev C.1 is an active bridge: stopping this app, losing power,
 or crashing interrupts both TX/RX data paths because no hardware bypass is
 implemented.
 
+- **Startup mascot:** on launch, before the relay/traffic UI, a small
+  animated 1-bit mascot (`A_Mascot_bop_40x40`, see
+  `../tools/sprite_assets/README.md` for how it was generated from the
+  source sprite sheet) plays for ~1.5s or until any key is pressed, then
+  is dismissed for the rest of the session. It only ever appears on this
+  dedicated splash screen — never during Setup or Running — so it can't
+  obscure RELAYING/PAUSED status, baud rate, traffic counters, or the hex
+  previews. It's driven by the Flipper GUI's `IconAnimation` timer/redraw
+  machinery, not by any sleep/delay in the input loop or relay worker.
+
 Both sides run the same baud rate (selectable at the setup screen:
 1200–115200) and framing (fixed at 8N1 — edit
 `furi_hal_serial_configure_framing` calls in `relay_start()` if your target

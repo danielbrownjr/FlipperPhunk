@@ -46,6 +46,9 @@ and are not captured by the Flipper.
 - `hardware/` — level-shifter board design: schematic description, BOM,
   wiring table from RS232 through to the Flipper GPIO header.
 - `firmware/` — the Flipper Zero application (FAP) source.
+- `tools/sprite_assets/` — reproducible source-to-Flipper conversion
+  pipeline for the firmware's splash-screen mascot animation. See
+  `tools/sprite_assets/README.md`.
 
 ## Quick start
 
